@@ -483,6 +483,8 @@ const enemySprite = document.getElementById("enemySprite");
 const enemyStatus = document.getElementById("enemyStatus");
 const commands = document.getElementById("commands");
 const battleLog = document.getElementById("battleLog");
+// フィールド時に表示するデフォルトメッセージ
+const FIELD_MESSAGE = "フィールドを移動してモンスターを探そう！";
 
 const goldValue = document.getElementById("goldValue");
 const expValue = document.getElementById("expValue");
@@ -893,6 +895,8 @@ function endBattle(message) {
     enemy = null;
     showBattleUI(false);
     drawMap(); // フィールド復帰
+    // フィールド復帰後はメッセージを切り替える
+    setLog(FIELD_MESSAGE);
   }, 1200);
 }
 
