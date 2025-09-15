@@ -110,6 +110,7 @@ html, body {
   cursor: pointer;
   transition: all 0.1s;
   box-shadow: 1px 1px 0 var(--shadow);
+  touch-action: manipulation;
 }
 
 .menu-btn:hover {
@@ -216,6 +217,7 @@ html, body {
 .cmd-btn:active {
   transform: translate(1px, 1px);
   box-shadow: 1px 1px 0 var(--shadow);
+  touch-action: manipulation;
 }
 
 /* 下部：メッセージウィンドウ */
@@ -245,6 +247,8 @@ html, body {
   right: 16px;
   display: none;
   z-index: 1000;
+  transform: scale(1.5);
+  transform-origin: bottom right;
 }
 
 .control-row {
@@ -265,6 +269,7 @@ html, body {
   cursor: pointer;
   transition: all 0.1s;
   box-shadow: 1px 1px 0 var(--shadow);
+  touch-action: manipulation;
 }
 
 .dir-btn:active {
@@ -1078,7 +1083,8 @@ canvas.addEventListener("touchend", (e) => {
 (function attachMobileDpad() {
   const pad = document.querySelectorAll(".dir-btn");
   pad.forEach(b => {
-    b.addEventListener("click", () => {
+    b.addEventListener("pointerdown", (e) => {
+      e.preventDefault();
       const dir = b.dataset.dir;
       if (dir === "up") movePlayer(0, -1);
       if (dir === "down") movePlayer(0, 1);
