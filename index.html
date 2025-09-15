@@ -886,14 +886,28 @@ function startBattle(tile) {
 }
 
 // 戦闘終了
-function endBattle(message) {
+function endBattle(message, rewardMessage = null) {
+  // 敵撃破メッセージを表示
   setLog(message);
   setTimeout(() => {
-    inBattle = false;
-    enemy = null;
-    showBattleUI(false);
-    drawMap(); // フィールド復帰
-  }, 1200);
+    if (rewardMessage) {
+      // 経験値とゴールド取得メッセージ
+      setLog(rewardMessage);
+      setTimeout(() => {
+        inBattle = false;
+        enemy = null;
+        showBattleUI(false);
+        drawMap(); // フィールド復帰
+        setLog("フィールドを探索中です。");
+      }, 800);
+    } else {
+      inBattle = false;
+      enemy = null;
+      showBattleUI(false);
+      drawMap(); // フィールド復帰
+      setLog("フィールドを探索中です。");
+    }
+  }, 800);
 }
 
 // プレイヤー・敵のターン
@@ -908,7 +922,7 @@ function playerAttack() {
     player.gold += enemy.gold;
     levelUpCheck();
     updatePlayerStatus();
-    endBattle(`${enemy.name} を たおした！`);
+    endBattle(`${enemy.name} を たおした！`, `経験値${enemy.exp}、${enemy.gold}GOLDを 手に入れた！`);
     return;
   }
   setTimeout(enemyAttack, 800);
@@ -931,7 +945,7 @@ function playerMagic() {
     player.gold += enemy.gold;
     levelUpCheck();
     updatePlayerStatus();
-    endBattle(`${enemy.name} は きえさった！`);
+    endBattle(`${enemy.name} は きえさった！`, `経験値${enemy.exp}、${enemy.gold}GOLDを 手に入れた！`);
     return;
   }
   setTimeout(enemyAttack, 800);
