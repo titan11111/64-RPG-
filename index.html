@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>ドラクエ風RPG</title>
+  <title>ドラクエ風RPG - ボス戦システム</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <style>
 /* ==========================
@@ -21,7 +21,10 @@
   --text-white: #ffffff;
   --text-yellow: #ffff00;
   --text-green: #00ff00;
+  --text-red: #ff4444;
   --shadow: #000066;
+  --boss-purple: #660066;
+  --boss-red: #cc0000;
 }
 
 * { box-sizing: border-box; }
@@ -50,6 +53,17 @@ html, body {
   gap: 8px;
   padding: 8px;
   background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-blue) 100%);
+}
+
+/* ボス戦時の背景変更 */
+.boss-battle #gameScreen {
+  background: linear-gradient(135deg, var(--boss-purple) 0%, var(--boss-red) 100%);
+  animation: bossBackground 3s ease-in-out infinite alternate;
+}
+
+@keyframes bossBackground {
+  0% { filter: brightness(1); }
+  100% { filter: brightness(1.2); }
 }
 
 /* 左上：ゴールド・経験値 */
@@ -164,6 +178,17 @@ html, body {
   box-shadow: 2px 2px 0 var(--shadow);
 }
 
+/* ボス戦時の戦闘エリア */
+.boss-battle #battleArea {
+  border-color: var(--boss-red);
+  animation: bossBorder 2s ease-in-out infinite alternate;
+}
+
+@keyframes bossBorder {
+  0% { box-shadow: 2px 2px 0 var(--shadow); }
+  100% { box-shadow: 4px 4px 0 var(--boss-red); }
+}
+
 /* 戦闘時のモンスター表示 */
 #enemyContainer {
   text-align: center;
@@ -172,6 +197,13 @@ html, body {
   border-radius: 8px;
   padding: 16px;
   width: 100%;
+  position: relative;
+}
+
+/* ボス専用コンテナ */
+.boss-battle #enemyContainer {
+  border-color: var(--boss-red);
+  background: linear-gradient(45deg, var(--bg-dark), var(--boss-purple));
 }
 
 #enemySprite {
@@ -183,10 +215,34 @@ html, body {
   align-items: center;
 }
 
+/* ボス専用スプライト（大きく表示） */
+.boss-battle #enemySprite {
+  width: 120px;
+  height: 120px;
+  animation: bossFloat 3s ease-in-out infinite;
+}
+
+@keyframes bossFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
 #enemyStatus {
   font-size: 10px;
   color: var(--text-green);
   margin-top: 8px;
+}
+
+/* ボス専用ステータス */
+.boss-battle #enemyStatus {
+  color: var(--text-red);
+  font-size: 12px;
+  animation: bossStatusPulse 2s ease-in-out infinite;
+}
+
+@keyframes bossStatusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 /* 戦闘コマンド */
@@ -220,6 +276,16 @@ html, body {
   touch-action: manipulation;
 }
 
+/* ボス戦専用コマンドボタン */
+.boss-battle .cmd-btn {
+  border-color: var(--boss-red);
+  background: linear-gradient(180deg, var(--boss-red), var(--boss-purple));
+}
+
+.boss-battle .cmd-btn:hover {
+  background: linear-gradient(180deg, var(--text-white), var(--boss-red));
+}
+
 /* 下部：メッセージウィンドウ */
 #messageWindow {
   grid-area: message-window;
@@ -233,6 +299,12 @@ html, body {
   align-items: center;
   box-shadow: 2px 2px 0 var(--shadow);
   color: var(--text-white);
+}
+
+/* ボス戦時のメッセージウィンドウ */
+.boss-battle #messageWindow {
+  border-color: var(--boss-red);
+  background: linear-gradient(90deg, var(--window-bg), var(--boss-purple));
 }
 
 #battleLog {
@@ -408,12 +480,12 @@ html, body {
     <!-- 右下：戦闘エリア（通常は非表示） -->
     <div id="battleArea">
       <div id="enemyContainer">
-        <div id="enemyArea" style="display:none;"></div>
-        <div id="enemySprite" style="display:none;"></div>
-        <div id="enemyStatus" style="display:none;"></div>
+        <div id="enemyArea"></div>
+        <div id="enemySprite"></div>
+        <div id="enemyStatus"></div>
       </div>
       
-      <div id="commands" style="display:none;">
+      <div id="commands">
         <button id="attackBtn" class="cmd-btn">こうげき</button>
         <button id="magicBtn" class="cmd-btn">じゅもん</button>
         <button id="runBtn" class="cmd-btn">にげる</button>
@@ -440,7 +512,7 @@ html, body {
 
   <script>
 // ==========================
-// ドラクエ風RPG script.js
+// ドラクエ風RPG script.js - ボス戦システム付き
 // ==========================
 
 // --------- 基本定義（タイル・マップ） ---------
@@ -456,7 +528,8 @@ const T = {
   VILLAGE: 3,
   CASTLE: 4,
   DESERT: 5,
-  MOUNTAIN: 6
+  MOUNTAIN: 6,
+  BOSS_CASTLE: 7  // ボス城追加
 };
 
 // 地形ごとの色（ベース）
@@ -467,7 +540,8 @@ const TILE_COLORS = {
   [T.VILLAGE]: "#3a2a15",
   [T.CASTLE]:  "#666666",
   [T.DESERT]:  "#c8b26a",
-  [T.MOUNTAIN]:"#7b4a2b"
+  [T.MOUNTAIN]:"#7b4a2b",
+  [T.BOSS_CASTLE]: "#660000"  // ボス城は赤黒
 };
 
 // --------- DOM取得 ---------
@@ -502,53 +576,57 @@ const player = {
   atk: 6, def: 2,
   level: 1,
   exp: 0, nextExp: 20,
-  gold: 0
+  gold: 0,
+  defeatedBosses: []  // 倒したボスを記録
 };
 
-// --------- マップ（2列 × 3行 = 6面） ---------
+// --------- マップ（2列 × 3行 = 6面）完全修正版 ---------
 const m11 = [
-  [T.GRASS,T.GRASS, T.FOREST,T.FOREST,T.VILLAGE],
-  [T.GRASS,T.GRASS, T.FOREST,T.FOREST,T.VILLAGE],
-  [T.GRASS,T.GRASS, T.GRASS, T.GRASS, T.GRASS ],
-  [T.GRASS,T.FOREST,T.FOREST,T.GRASS, T.GRASS ],
-  [T.DESERT,T.DESERT,T.GRASS, T.GRASS, T.CASTLE]
+  [T.GRASS, T.GRASS,  T.FOREST, T.FOREST, T.VILLAGE],    // 右上に村
+  [T.GRASS, T.GRASS,  T.FOREST, T.FOREST, T.GRASS ],     
+  [T.GRASS, T.GRASS,  T.GRASS,  T.GRASS,  T.GRASS ],     
+  [T.GRASS, T.FOREST, T.FOREST, T.GRASS,  T.GRASS ],     
+  [T.DESERT,T.DESERT, T.GRASS,  T.GRASS,  T.CASTLE]      // 右下に城
 ];
+
 const m12 = [
-  [T.WATER, T.WATER, T.GRASS, T.GRASS, T.GRASS ],
-  [T.WATER, T.GRASS, T.GRASS, T.FOREST,T.FOREST],
-  [T.GRASS, T.GRASS, T.GRASS, T.GRASS, T.GRASS ],
-  [T.FOREST,T.FOREST,T.GRASS, T.CASTLE,T.CASTLE],
-  [T.GRASS, T.GRASS, T.GRASS, T.CASTLE,T.CASTLE]
+  [T.WATER, T.WATER,  T.GRASS,  T.GRASS,  T.GRASS ],     
+  [T.WATER, T.GRASS,  T.GRASS,  T.FOREST, T.FOREST],     
+  [T.GRASS, T.GRASS,  T.GRASS,  T.GRASS,  T.GRASS ],     
+  [T.FOREST,T.FOREST, T.GRASS,  T.BOSS_CASTLE,T.BOSS_CASTLE], // 魔王城
+  [T.GRASS, T.GRASS,  T.GRASS,  T.BOSS_CASTLE,T.BOSS_CASTLE]  // 魔王城
 ];
 
 const m21 = [
-  [T.FOREST,T.FOREST,T.FOREST,T.GRASS ,T.GRASS ],
-  [T.FOREST,T.VILLAGE,T.GRASS ,T.GRASS ,T.GRASS ],
-  [T.FOREST,T.GRASS ,T.GRASS ,T.GRASS ,T.DESERT],
-  [T.FOREST,T.GRASS ,T.GRASS ,T.GRASS ,T.DESERT],
-  [T.GRASS ,T.GRASS ,T.GRASS ,T.GRASS ,T.CASTLE]
+  [T.FOREST,T.FOREST, T.FOREST, T.GRASS,  T.GRASS ],     
+  [T.FOREST,T.VILLAGE,T.GRASS,  T.GRASS,  T.GRASS ],     // 左上に村
+  [T.FOREST,T.GRASS,  T.GRASS,  T.GRASS,  T.DESERT],     
+  [T.FOREST,T.GRASS,  T.GRASS,  T.GRASS,  T.DESERT],     
+  [T.GRASS, T.GRASS,  T.GRASS,  T.GRASS,  T.CASTLE]      // 右下に城
 ];
+
 const m22 = [
-  [T.CASTLE,T.CASTLE,T.GRASS ,T.GRASS ,T.GRASS ],
-  [T.CASTLE,T.CASTLE,T.GRASS ,T.FOREST,T.FOREST],
-  [T.GRASS ,T.GRASS ,T.GRASS ,T.FOREST,T.FOREST],
-  [T.GRASS ,T.GRASS ,T.GRASS ,T.GRASS ,T.GRASS ],
-  [T.GRASS ,T.GRASS ,T.VILLAGE,T.GRASS ,T.GRASS ]
+  [T.CASTLE,T.CASTLE, T.GRASS,  T.GRASS,  T.GRASS ],     // 左上に城
+  [T.CASTLE,T.CASTLE, T.GRASS,  T.FOREST, T.FOREST],     // 左上に城
+  [T.GRASS, T.GRASS,  T.GRASS,  T.FOREST, T.FOREST],     
+  [T.GRASS, T.GRASS,  T.GRASS,  T.GRASS,  T.GRASS ],     
+  [T.GRASS, T.GRASS,  T.VILLAGE,T.GRASS,  T.GRASS ]      // 下中央に村
 ];
 
 const m31 = [
-  [T.GRASS ,T.GRASS ,T.GRASS ,T.GRASS ,T.GRASS ],
-  [T.GRASS ,T.FOREST,T.FOREST,T.GRASS ,T.GRASS ],
-  [T.GRASS ,T.GRASS ,T.GRASS ,T.GRASS ,T.GRASS ],
-  [T.VILLAGE,T.GRASS ,T.MOUNTAIN,T.MOUNTAIN,T.GRASS ],
-  [T.CASTLE,T.CASTLE,T.MOUNTAIN,T.GRASS ,T.GRASS ]
+  [T.GRASS, T.GRASS,  T.GRASS,  T.GRASS,  T.GRASS ],     
+  [T.GRASS, T.FOREST, T.FOREST, T.GRASS,  T.GRASS ],     
+  [T.GRASS, T.GRASS,  T.GRASS,  T.GRASS,  T.GRASS ],     
+  [T.VILLAGE,T.GRASS, T.MOUNTAIN,T.MOUNTAIN,T.GRASS ],   // 左下に村
+  [T.CASTLE,T.CASTLE, T.MOUNTAIN,T.GRASS,  T.GRASS ]     // 左下に城
 ];
+
 const m32 = [
-  [T.GRASS ,T.GRASS ,T.GRASS ,T.GRASS ,T.GRASS ],
-  [T.FOREST,T.FOREST,T.FOREST,T.FOREST,T.FOREST],
-  [T.GRASS ,T.GRASS ,T.GRASS ,T.GRASS ,T.GRASS ],
-  [T.GRASS ,T.DESERT,T.DESERT,T.VILLAGE,T.VILLAGE],
-  [T.GRASS ,T.DESERT,T.DESERT,T.CASTLE ,T.CASTLE ]
+  [T.GRASS, T.GRASS,  T.GRASS,  T.GRASS,  T.GRASS ],     
+  [T.FOREST,T.FOREST, T.FOREST, T.FOREST, T.FOREST],     
+  [T.GRASS, T.GRASS,  T.GRASS,  T.GRASS,  T.GRASS ],     
+  [T.GRASS, T.DESERT, T.DESERT, T.VILLAGE,T.VILLAGE],    // 右下に村
+  [T.BOSS_CASTLE,T.BOSS_CASTLE,T.DESERT,T.CASTLE,T.CASTLE] // 左下に魔王城、右下に城
 ];
 
 const WORLD = [
@@ -561,7 +639,7 @@ let mapRow = 0;
 let mapCol = 0;
 let mapData = WORLD[mapRow][mapCol];
 
-// --------- 村・城のSVG画像化 ---------
+// --------- 村・城・ボス城のSVG画像化 ---------
 function svgVillage() {
   return `
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
@@ -586,10 +664,29 @@ function svgCastle() {
   </svg>`;
 }
 
+function svgBossCastle() {
+  return `
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+    <rect x="0" y="5" width="4" height="10" fill="#330000"/>
+    <rect x="12" y="5" width="4" height="10" fill="#330000"/>
+    <rect x="4" y="7" width="8" height="8" fill="#660000"/>
+    <rect x="6" y="10" width="4" height="5" fill="#000"/>
+    <rect x="1" y="4" width="2" height="2" fill="#ff0000"/>
+    <rect x="13" y="4" width="2" height="2" fill="#ff0000"/>
+    <rect x="7" y="2" width="2" height="3" fill="#ff6600"/>
+    <rect x="2" y="1" width="1" height="2" fill="#660000"/>
+    <rect x="6" y="0" width="1" height="2" fill="#660000"/>
+    <rect x="9" y="0" width="1" height="2" fill="#660000"/>
+    <rect x="13" y="1" width="1" height="2" fill="#660000"/>
+  </svg>`;
+}
+
 const villageImg = new Image();
 villageImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgVillage());
 const castleImg = new Image();
 castleImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgCastle());
+const bossCastleImg = new Image();
+bossCastleImg.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgBossCastle());
 
 // --------- マップ描画 ---------
 function drawMap() {
@@ -628,38 +725,6 @@ function drawTile(tx, ty, tile) {
       // 明るい点で草っぽさ
       ctx.fillStyle = "rgba(255,255,255,0.1)";
       for (let i = 0; i < 8; i++) {
-        const rx = px + Math.random() * TILE_SIZE;
-        const ry = py + Math.random() * TILE_SIZE;
-        ctx.fillRect(rx, ry, 2, 2);
-      }
-      break;
-    }
-    case T.FOREST: {
-      // 小さな丸で樹木感
-      ctx.fillStyle = "#1d7a2b";
-      for (let i = 0; i < 4; i++) {
-        ctx.beginPath();
-        ctx.arc(px + 16 + i * 8, py + 16 + (i * 12) % 32, 6, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      break;
-    }
-    case T.WATER: {
-      // さざ波
-      ctx.strokeStyle = "#4da6ff";
-      ctx.lineWidth = 2;
-      for (let i = 0; i < 3; i++) {
-        ctx.beginPath();
-        ctx.moveTo(px + 8, py + 16 + i * 16);
-        ctx.quadraticCurveTo(px + 32, py + 8 + i * 16, px + 56, py + 16 + i * 16);
-        ctx.stroke();
-      }
-      break;
-    }
-    case T.DESERT: {
-      // 砂模様
-      ctx.fillStyle = "rgba(139,69,19,0.3)";
-      for (let i = 0; i < 12; i++) {
         const rx = px + Math.random() * TILE_SIZE;
         const ry = py + Math.random() * TILE_SIZE;
         ctx.fillRect(rx, ry, 3, 1);
@@ -705,6 +770,23 @@ function drawTile(tx, ty, tile) {
       }
       break;
     }
+    case T.BOSS_CASTLE: {
+      // ボス城の下地は暗い石
+      ctx.fillStyle = "#333333";
+      ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+      // 不気味なオーラ効果
+      ctx.fillStyle = "rgba(255,0,0,0.2)";
+      for (let i = 0; i < 6; i++) {
+        ctx.beginPath();
+        ctx.arc(px + 32, py + 32, 20 + i * 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // ボス城アイコン
+      if (bossCastleImg.complete) {
+        ctx.drawImage(bossCastleImg, px + 8, py + 4, TILE_SIZE - 16, TILE_SIZE - 16);
+      }
+      break;
+    }
   }
 
   // タイル境界の細い線
@@ -722,6 +804,31 @@ const ENEMIES = {
   octopus: { id: "octopus", name: "たこ入道", hp: 24, atk: 6, exp: 18, gold: 14 },
   dragon: { id: "dragon", name: "ドラゴン", hp: 40, atk: 9, exp: 35, gold: 30 },
   devil: { id: "devil", name: "悪魔", hp: 28, atk: 7, exp: 22, gold: 18 }
+};
+
+// ボス敵データ
+const BOSSES = {
+  darkLord: { 
+    id: "darkLord", name: "魔王ザラキエル", hp: 80, maxHp: 80, atk: 12, def: 3, exp: 100, gold: 200,
+    specialAttack: "暗黒の嵐", specialDamage: 18, isBoss: true
+  },
+  shadowDragon: { 
+    id: "shadowDragon", name: "影の竜王", hp: 120, maxHp: 120, atk: 15, def: 4, exp: 150, gold: 300,
+    specialAttack: "シャドウブレス", specialDamage: 25, isBoss: true
+  }
+};
+
+// ボス位置マッピング（完全修正版）
+const BOSS_LOCATIONS = {
+  // 右上マップ（m12）の魔王城 - 魔王ザラキエル
+  "0_1_3_3": "darkLord",     // (3,3)
+  "0_1_4_3": "darkLord",     // (4,3) 
+  "0_1_3_4": "darkLord",     // (3,4)
+  "0_1_4_4": "darkLord",     // (4,4)
+  
+  // 左下マップ（m32）の魔王城 - 影の竜王  
+  "2_1_0_4": "shadowDragon", // (0,4)
+  "2_1_1_4": "shadowDragon"  // (1,4)
 };
 
 // 敵ドット絵（SVG文字列）
@@ -805,12 +912,44 @@ const ENEMY_SVG = {
       <rect x="7" y="9" width="2" height="1" fill="#dc2626"/>
       <rect x="2" y="1" width="2" height="3" fill="#581c87"/>
       <rect x="12" y="1" width="2" height="3" fill="#581c87"/>
+    </svg>`,
+  // ボスSVG
+  darkLord: `
+    <svg width="120" height="120" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+      <rect width="20" height="20" fill="#000020"/>
+      <rect x="6" y="4" width="8" height="12" fill="#330033"/>
+      <rect x="5" y="6" width="3" height="3" fill="#ff0066"/>
+      <rect x="12" y="6" width="3" height="3" fill="#ff0066"/>
+      <rect x="6" y="7" width="1" height="1" fill="#000"/>
+      <rect x="13" y="7" width="1" height="1" fill="#000"/>
+      <rect x="8" y="10" width="4" height="2" fill="#ff0000"/>
+      <rect x="3" y="2" width="3" height="5" fill="#330033"/>
+      <rect x="14" y="2" width="3" height="5" fill="#330033"/>
+      <rect x="4" y="16" width="12" height="2" fill="#660066"/>
+      <rect x="2" y="0" width="2" height="4" fill="#ff0066"/>
+      <rect x="16" y="0" width="2" height="4" fill="#ff0066"/>
+    </svg>`,
+  shadowDragon: `
+    <svg width="120" height="120" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+      <rect width="20" height="20" fill="#000020"/>
+      <rect x="2" y="6" width="16" height="10" fill="#1a0033"/>
+      <rect x="5" y="8" width="3" height="3" fill="#9900cc"/>
+      <rect x="12" y="8" width="3" height="3" fill="#9900cc"/>
+      <rect x="6" y="9" width="1" height="1" fill="#fff"/>
+      <rect x="13" y="9" width="1" height="1" fill="#fff"/>
+      <rect x="7" y="12" width="6" height="2" fill="#cc0066"/>
+      <rect x="0" y="4" width="4" height="3" fill="#1a0033"/>
+      <rect x="16" y="4" width="4" height="3" fill="#1a0033"/>
+      <rect x="1" y="0" width="2" height="3" fill="#1a0033"/>
+      <rect x="17" y="0" width="2" height="3" fill="#1a0033"/>
+      <rect x="8" y="2" width="4" height="2" fill="#9900cc"/>
     </svg>`
 };
 
 // --------- 戦闘制御 ---------
 let inBattle = false;
 let enemy = null;
+let isBossBattle = false;
 
 // 内部ログ（保持は複数、表示は1行）
 const logs = [];
@@ -823,17 +962,34 @@ function setLog(msg) {
 function showBattleUI(flag) {
   if (flag) {
     gameScreen.classList.add('battle-mode');
+    if (isBossBattle) {
+      gameScreen.classList.add('boss-battle');
+    }
     enemyArea.style.display = "block";
     enemySprite.style.display = "flex";
     enemyStatus.style.display = "block";
     commands.style.display = "flex";
   } else {
-    gameScreen.classList.remove('battle-mode');
+    gameScreen.classList.remove('battle-mode', 'boss-battle');
     enemyArea.style.display = "none";
     enemySprite.style.display = "none";
     enemyStatus.style.display = "none";
     commands.style.display = "none";
+    isBossBattle = false;
   }
+}
+
+// ボスチェック（修正）
+function getBossAtLocation() {
+  const key = `${mapRow}_${mapCol}_${player.x}_${player.y}`;
+  console.log("ボス位置チェック:", key); // デバッグ用
+  const bossId = BOSS_LOCATIONS[key];
+  if (bossId && !player.defeatedBosses.includes(bossId)) {
+    console.log("ボス発見:", bossId); // デバッグ用
+    return { ...BOSSES[bossId] };
+  }
+  console.log("ボスなし"); // デバッグ用
+  return null;
 }
 
 // 敵ランダム（地形で重み付け可：簡易）
@@ -844,6 +1000,7 @@ function pickEnemyByTile(tile) {
   const poolMount = ["goblin", "devil", "dragon"];
   const poolWater = ["octopus", "mushroom"];
   const poolTown = []; // 村・城は原則エンカウントなし
+  const poolBossCastle = []; // ボス城は特別処理
 
   let pool = poolGrass;
   if (tile === T.FOREST) pool = poolForest;
@@ -851,6 +1008,7 @@ function pickEnemyByTile(tile) {
   if (tile === T.MOUNTAIN) pool = poolMount;
   if (tile === T.WATER) pool = poolWater;
   if (tile === T.VILLAGE || tile === T.CASTLE) pool = poolTown;
+  if (tile === T.BOSS_CASTLE) pool = poolBossCastle;
 
   if (pool.length === 0) return null;
   const id = pool[Math.floor(Math.random() * pool.length)];
@@ -867,23 +1025,42 @@ function getEncounterRate(tile) {
     case T.WATER: return 0.06;
     case T.VILLAGE: return 0.00;
     case T.CASTLE: return 0.00;
+    case T.BOSS_CASTLE: return 0.00; // ボス城は特別処理
     default: return 0.12;
   }
 }
 
 // 戦闘開始
 function startBattle(tile) {
+  // まずボスチェック
+  const boss = getBossAtLocation();
+  if (boss) {
+    // ボス戦開始
+    inBattle = true;
+    isBossBattle = true;
+    enemy = boss;
+    
+    showBattleUI(true);
+    enemyArea.textContent = `${enemy.name} が立ちはだかる！`;
+    enemySprite.innerHTML = ENEMY_SVG[enemy.id] || "";
+    enemyStatus.textContent = `HP:${enemy.hp}/${enemy.maxHp}`;
+    updatePlayerStatus();
+    setLog(`魔王 ${enemy.name} との決戦だ！`);
+    return;
+  }
+
+  // 通常の敵
   const e = pickEnemyByTile(tile);
   if (!e) return; // 村・城など
   inBattle = true;
+  isBossBattle = false;
   enemy = e;
 
+  showBattleUI(true);
   enemyArea.textContent = `${enemy.name} があらわれた！`;
   enemySprite.innerHTML = ENEMY_SVG[enemy.id] || "";
   enemyStatus.textContent = `HP:${enemy.hp}`;
   updatePlayerStatus();
-
-  showBattleUI(true);
   setLog(`${enemy.name} が あらわれた！`);
 }
 
@@ -903,13 +1080,26 @@ function endBattle(message) {
 // プレイヤー・敵のターン
 function playerAttack() {
   if (!inBattle) return;
-  const dmg = Math.max(1, player.atk - 1 + Math.floor(Math.random() * 3));
+  const dmg = Math.max(1, player.atk - (enemy.def || 0) + Math.floor(Math.random() * 4));
   enemy.hp -= dmg;
   setLog(`ゆうしゃの こうげき！ ${dmg}ダメージ！`);
-  enemyStatus.textContent = `HP:${Math.max(0, enemy.hp)}`;
+  
+  if (isBossBattle) {
+    enemyStatus.textContent = `HP:${Math.max(0, enemy.hp)}/${enemy.maxHp}`;
+  } else {
+    enemyStatus.textContent = `HP:${Math.max(0, enemy.hp)}`;
+  }
+  
   if (enemy.hp <= 0) {
     player.exp += enemy.exp;
     player.gold += enemy.gold;
+    
+    // ボス撃破時の処理
+    if (isBossBattle) {
+      player.defeatedBosses.push(enemy.id);
+      setLog(`${enemy.name} を討伐した！！`);
+    }
+    
     levelUpCheck();
     updatePlayerStatus();
     endBattle(`${enemy.name} を たおした！`);
@@ -928,11 +1118,24 @@ function playerMagic() {
   const dmg = 6 + Math.floor(Math.random() * 4);
   enemy.hp -= dmg;
   setLog(`ホイミ！ ${dmg}ダメージ！`);
-  enemyStatus.textContent = `HP:${Math.max(0, enemy.hp)}`;
+  
+  if (isBossBattle) {
+    enemyStatus.textContent = `HP:${Math.max(0, enemy.hp)}/${enemy.maxHp}`;
+  } else {
+    enemyStatus.textContent = `HP:${Math.max(0, enemy.hp)}`;
+  }
+  
   updatePlayerStatus();
   if (enemy.hp <= 0) {
     player.exp += enemy.exp;
     player.gold += enemy.gold;
+    
+    // ボス撃破時の処理
+    if (isBossBattle) {
+      player.defeatedBosses.push(enemy.id);
+      setLog(`${enemy.name} を討伐した！！`);
+    }
+    
     levelUpCheck();
     updatePlayerStatus();
     endBattle(`${enemy.name} は きえさった！`);
@@ -943,6 +1146,14 @@ function playerMagic() {
 
 function playerRun() {
   if (!inBattle) return;
+  
+  // ボスからは逃げられない
+  if (isBossBattle) {
+    setLog(`${enemy.name} は逃がしてくれない！`);
+    setTimeout(enemyAttack, 700);
+    return;
+  }
+  
   if (Math.random() < 0.6) {
     endBattle("うまく にげきれた！");
   } else {
@@ -953,10 +1164,20 @@ function playerRun() {
 
 function enemyAttack() {
   if (!inBattle || !enemy) return;
-  const dmg = Math.max(1, enemy.atk - player.def + Math.floor(Math.random() * 3));
-  player.hp -= dmg;
-  if (player.hp < 0) player.hp = 0;
-  setLog(`${enemy.name} の こうげき！ ${dmg}ダメージ！`);
+  
+  // ボスの特殊攻撃判定
+  if (isBossBattle && Math.random() < 0.3) {
+    const specialDmg = Math.max(1, enemy.specialDamage - player.def + Math.floor(Math.random() * 3));
+    player.hp -= specialDmg;
+    if (player.hp < 0) player.hp = 0;
+    setLog(`${enemy.name} の ${enemy.specialAttack}！ ${specialDmg}ダメージ！`);
+  } else {
+    const dmg = Math.max(1, enemy.atk - player.def + Math.floor(Math.random() * 3));
+    player.hp -= dmg;
+    if (player.hp < 0) player.hp = 0;
+    setLog(`${enemy.name} の こうげき！ ${dmg}ダメージ！`);
+  }
+  
   updatePlayerStatus();
   if (player.hp <= 0) {
     endBattle("ゆうしゃは たおれた…");
@@ -1003,7 +1224,168 @@ function updatePlayerStatus() {
   maxMpValue.textContent = player.maxMp;
 }
 
-// --------- 移動とマップ切替 ---------
+// --------- 建物内部の状態管理 ---------
+let inBuilding = false;
+let currentBuilding = null;
+
+// 建物内部画面の描画
+function drawBuildingInterior(buildingType) {
+  console.log("建物内部描画開始:", buildingType);
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  switch(buildingType) {
+    case T.VILLAGE:
+      console.log("村の内部を描画");
+      // 村の内部（茶色の床、木のテーブル）
+      ctx.fillStyle = "#8b4513";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // 木のテーブル
+      ctx.fillStyle = "#654321";
+      ctx.fillRect(120, 120, 80, 80);
+      
+      // 村人（緑色の人）
+      ctx.fillStyle = "#228b22";
+      ctx.fillRect(140, 80, 40, 60);
+      ctx.fillStyle = "#ffdbac";
+      ctx.fillRect(150, 70, 20, 20);
+      
+      // 文字表示
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "12px monospace";
+      ctx.fillText("村の宿屋", 130, 40);
+      break;
+      
+    case T.CASTLE:
+      console.log("城の内部を描画");
+      // 城の内部（石の床、王座）
+      ctx.fillStyle = "#696969";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // 王座
+      ctx.fillStyle = "#ffd700";
+      ctx.fillRect(140, 100, 60, 80);
+      ctx.fillRect(130, 90, 80, 20);
+      
+      // 王様（青いマント）
+      ctx.fillStyle = "#0000ff";
+      ctx.fillRect(150, 60, 40, 60);
+      ctx.fillStyle = "#ffdbac";
+      ctx.fillRect(160, 50, 20, 20);
+      ctx.fillStyle = "#ffd700";
+      ctx.fillRect(155, 45, 30, 10);
+      
+      // 文字表示
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "12px monospace";
+      ctx.fillText("王の間", 140, 40);
+      break;
+      
+    case T.BOSS_CASTLE:
+      console.log("魔王城の内部を描画");
+      // 魔王城の内部（暗い、不気味）
+      ctx.fillStyle = "#1a0000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // 魔王の玉座
+      ctx.fillStyle = "#330000";
+      ctx.fillRect(120, 100, 80, 100);
+      
+      // 炎のエフェクト
+      for (let i = 0; i < 10; i++) {
+        ctx.fillStyle = `rgba(255, ${100 + Math.random() * 100}, 0, 0.7)`;
+        ctx.fillRect(50 + Math.random() * 220, 200 + Math.random() * 100, 20, 20);
+      }
+      
+      // 文字表示
+      ctx.fillStyle = "#ff0000";
+      ctx.font = "14px monospace";
+      ctx.fillText("魔王の間", 120, 40);
+      break;
+      
+    default:
+      console.log("不明な建物タイプ:", buildingType);
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "12px monospace";
+      ctx.fillText("不明な場所", 120, 40);
+      break;
+  }
+  
+  // 出口の表示
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "10px monospace";
+  ctx.fillText("↓出口", 150, 300);
+  console.log("建物内部描画完了");
+}
+
+// 建物から出る処理
+function exitBuilding() {
+  if (!inBuilding) return;
+  
+  inBuilding = false;
+  currentBuilding = null;
+  drawMap(); // フィールドマップに戻る
+  setLog("外に出た。");
+}
+function enterBuilding(tile) {
+  console.log("建物に入場:", tile, "位置:", mapRow, mapCol, player.x, player.y); // デバッグ用
+  
+  switch(tile) {
+    case T.VILLAGE:
+      setLog("村人「いらっしゃい！ここは平和な村です。」");
+      // 村の機能（アイテム購入、情報収集など）
+      setTimeout(() => {
+        const choice = Math.random();
+        if (choice < 0.3) {
+          setLog("村人「薬草を50ゴールドで売ってあげよう。」");
+          setTimeout(() => {
+            if (player.gold >= 50) {
+              player.gold -= 50;
+              player.hp = Math.min(player.maxHp, player.hp + 20);
+              updatePlayerStatus();
+              setLog("薬草を買った！HPが20回復した！");
+            } else {
+              setLog("お金が足りない…");
+            }
+          }, 1000);
+        } else if (choice < 0.6) {
+          setLog("村人「魔王城は恐ろしい場所だ。気をつけて！」");
+        } else {
+          setLog("村人「レベルを上げて物理で殴るのじゃ！」");
+        }
+      }, 1000);
+      break;
+      
+    case T.CASTLE:
+      setLog("兵士「ここは王の城です。勇者よ、世界を救ってください！」");
+      setTimeout(() => {
+        // 城の機能（全回復、セーブなど）
+        player.hp = player.maxHp;
+        player.mp = player.maxMp;
+        updatePlayerStatus();
+        setLog("王「勇者よ！HPとMPを全回復してやろう！」");
+      }, 1000);
+      break;
+      
+    case T.BOSS_CASTLE:
+      console.log("魔王城に入場"); // デバッグ用
+      const boss = getBossAtLocation();
+      if (boss) {
+        console.log("ボス戦開始:", boss.name); // デバッグ用
+        setLog("恐ろしいオーラが立ちこめている…");
+        setTimeout(() => {
+          startBattle(tile);
+        }, 1000);
+      } else {
+        console.log("ボスなし - 廃墟"); // デバッグ用
+        setLog("静寂に包まれた廃墟の城…もう何もない。");
+      }
+      break;
+  }
+}
 function movePlayer(dx, dy) {
   if (inBattle) return;
 
@@ -1044,23 +1426,196 @@ function movePlayer(dx, dy) {
   player.y = ny;
   drawMap();
 
-  // エンカウント判定（地形依存）
+  // ボス城チェック
   const tile = mapData[player.y][player.x];
+  if (tile === T.BOSS_CASTLE) {
+    const boss = getBossAtLocation();
+    if (boss) {
+      startBattle(tile);
+      return;
+    } else {
+      setLog("ここには もう何もない…");
+      return;
+    }
+  }
+
+  // エンカウント判定（地形依存）
   const rate = getEncounterRate(tile);
   if (Math.random() < rate) startBattle(tile);
 }
 
-// --------- 入力（キーボード・タッチ・補助ボタン） ---------
+// --------- 入力（シンプル直接実装版） ---------
 document.addEventListener("keydown", (e) => {
-  if (e.key === "ArrowUp") movePlayer(0, -1);
-  if (e.key === "ArrowDown") movePlayer(0, 1);
-  if (e.key === "ArrowLeft") movePlayer(-1, 0);
-  if (e.key === "ArrowRight") movePlayer(1, 0);
+  console.log("🎮 キー押下:", e.key);
+  
+  // 戦闘中は移動不可
+  if (inBattle) {
+    console.log("❌ 戦闘中のため移動不可");
+    return;
+  }
+
+  // 建物内の処理
+  if (inBuilding) {
+    console.log("🏠 建物内での処理");
+    if (e.key === "ArrowDown") {
+      console.log("🚪 建物から退出");
+      inBuilding = false;
+      currentBuilding = null;
+      drawMap();
+      setLog("外に出た。");
+    }
+    return;
+  }
+
+  let dx = 0, dy = 0;
+  
+  if (e.key === "ArrowUp") {
+    e.preventDefault();
+    dy = -1;
+    console.log("⬆️ 上移動開始");
+  } else if (e.key === "ArrowDown") {
+    e.preventDefault();
+    dy = 1;
+    console.log("⬇️ 下移動開始");
+  } else if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    dx = -1;
+    console.log("⬅️ 左移動開始");
+  } else if (e.key === "ArrowRight") {
+    e.preventDefault();
+    dx = 1;
+    console.log("➡️ 右移動開始");
+  } else {
+    return; // 矢印キー以外は無視
+  }
+
+  console.log("📍 移動前の位置:", player.x, player.y, "マップ:", mapRow, mapCol);
+
+  // 新しい位置を計算
+  let newX = player.x + dx;
+  let newY = player.y + dy;
+  let newMapRow = mapRow;
+  let newMapCol = mapCol;
+
+  console.log("🎯 計算後の位置:", newX, newY);
+
+  // マップ境界チェック
+  if (newX < 0) {
+    console.log("⬅️ 左境界チェック");
+    if (mapCol > 0) {
+      newMapCol = mapCol - 1;
+      newX = MAP_W - 1;
+      console.log("✅ 左マップへ:", newMapRow, newMapCol);
+    } else {
+      console.log("❌ 左端で移動不可");
+      return;
+    }
+  } else if (newX >= MAP_W) {
+    console.log("➡️ 右境界チェック");
+    if (mapCol < WORLD[0].length - 1) {
+      newMapCol = mapCol + 1;
+      newX = 0;
+      console.log("✅ 右マップへ:", newMapRow, newMapCol);
+    } else {
+      console.log("❌ 右端で移動不可");
+      return;
+    }
+  }
+
+  if (newY < 0) {
+    console.log("⬆️ 上境界チェック");
+    if (mapRow > 0) {
+      newMapRow = mapRow - 1;
+      newY = MAP_H - 1;
+      console.log("✅ 上マップへ:", newMapRow, newMapCol);
+    } else {
+      console.log("❌ 上端で移動不可");
+      return;
+    }
+  } else if (newY >= MAP_H) {
+    console.log("⬇️ 下境界チェック");
+    if (mapRow < WORLD.length - 1) {
+      newMapRow = mapRow + 1;
+      newY = 0;
+      console.log("✅ 下マップへ:", newMapRow, newMapCol);
+    } else {
+      console.log("❌ 下端で移動不可");
+      return;
+    }
+  }
+
+  // 位置更新
+  player.x = newX;
+  player.y = newY;
+  mapRow = newMapRow;
+  mapCol = newMapCol;
+  mapData = WORLD[mapRow][mapCol];
+
+  console.log("✅ 移動完了:", player.x, player.y, "マップ:", mapRow, mapCol);
+
+  // マップ再描画
+  console.log("🗺️ マップ描画開始");
+  drawMap();
+  console.log("🗺️ マップ描画完了");
+
+  // 現在のタイルをチェック
+  const tile = mapData[player.y][player.x];
+  console.log("🎯 現在のタイル:", tile);
+
+  // 建物チェック
+  if (tile === T.VILLAGE) {
+    console.log("🏠 村発見！");
+    inBuilding = true;
+    currentBuilding = tile;
+    drawBuildingInterior(tile);
+    setLog("村人「いらっしゃい！ここは平和な村です。下矢印で外に出られます。」");
+    return;
+  }
+  
+  if (tile === T.CASTLE) {
+    console.log("🏰 城発見！");
+    inBuilding = true;
+    currentBuilding = tile;
+    drawBuildingInterior(tile);
+    player.hp = player.maxHp;
+    player.mp = player.maxMp;
+    updatePlayerStatus();
+    setLog("王「勇者よ！HPとMPを全回復してやろう！下矢印で外に出られます。」");
+    return;
+  }
+  
+  if (tile === T.BOSS_CASTLE) {
+    console.log("🏴 魔王城発見！");
+    const boss = getBossAtLocation();
+    if (boss) {
+      console.log("💀 ボス戦開始!");
+      startBattle(tile);
+    } else {
+      console.log("👻 廃墟");
+      setLog("静寂に包まれた廃墟の城…もう何もない。");
+    }
+    return;
+  }
+
+  // エンカウント判定
+  const rate = getEncounterRate(tile);
+  const random = Math.random();
+  console.log("⚔️ エンカウント判定:", rate, "vs", random);
+  
+  if (random < rate) {
+    console.log("💥 エンカウント！");
+    startBattle(tile);
+  } else {
+    console.log("✅ 安全");
+  }
+
+  console.log("🏁 移動処理完了");
 });
 
 // スワイプ
 let touchSX = null, touchSY = null;
 canvas.addEventListener("touchstart", (e) => {
+  console.log("タッチ開始");
   if (inBattle) return;
   const t = e.changedTouches[0];
   touchSX = t.clientX;
@@ -1068,17 +1623,30 @@ canvas.addEventListener("touchstart", (e) => {
 }, { passive: true });
 
 canvas.addEventListener("touchend", (e) => {
+  console.log("タッチ終了");
   if (inBattle) return;
   if (touchSX == null || touchSY == null) return;
   const t = e.changedTouches[0];
   const dx = t.clientX - touchSX;
   const dy = t.clientY - touchSY;
+  console.log("スワイプ:", dx, dy);
+  
   if (Math.abs(dx) > Math.abs(dy)) {
-    if (dx > 30) movePlayer(1, 0);
-    else if (dx < -30) movePlayer(-1, 0);
+    if (dx > 30) {
+      console.log("右スワイプ");
+      movePlayer(1, 0);
+    } else if (dx < -30) {
+      console.log("左スワイプ");
+      movePlayer(-1, 0);
+    }
   } else {
-    if (dy > 30) movePlayer(0, 1);
-    else if (dy < -30) movePlayer(0, -1);
+    if (dy > 30) {
+      console.log("下スワイプ");
+      movePlayer(0, 1);
+    } else if (dy < -30) {
+      console.log("上スワイプ");
+      movePlayer(0, -1);
+    }
   }
   touchSX = touchSY = null;
 }, { passive: true });
@@ -1086,10 +1654,26 @@ canvas.addEventListener("touchend", (e) => {
 // 画面上の補助ボタン
 (function attachMobileDpad() {
   const pad = document.querySelectorAll(".dir-btn");
+  console.log("方向ボタン数:", pad.length);
+  
   pad.forEach(b => {
     b.addEventListener("pointerdown", (e) => {
       e.preventDefault();
       const dir = b.dataset.dir;
+      console.log("方向ボタン押下:", dir);
+      
+      if (dir === "up") movePlayer(0, -1);
+      if (dir === "down") movePlayer(0, 1);
+      if (dir === "left") movePlayer(-1, 0);
+      if (dir === "right") movePlayer(1, 0);
+    });
+    
+    // クリックイベントも追加
+    b.addEventListener("click", (e) => {
+      e.preventDefault();
+      const dir = b.dataset.dir;
+      console.log("方向ボタンクリック:", dir);
+      
       if (dir === "up") movePlayer(0, -1);
       if (dir === "down") movePlayer(0, 1);
       if (dir === "left") movePlayer(-1, 0);
@@ -1099,13 +1683,23 @@ canvas.addEventListener("touchend", (e) => {
 })();
 
 // 戦闘コマンド
-document.getElementById("attackBtn").addEventListener("click", () => playerAttack());
-document.getElementById("magicBtn").addEventListener("click", () => playerMagic());
-document.getElementById("runBtn").addEventListener("click", () => playerRun());
+document.getElementById("attackBtn").addEventListener("click", () => {
+  console.log("攻撃ボタン押下");
+  playerAttack();
+});
+document.getElementById("magicBtn").addEventListener("click", () => {
+  console.log("魔法ボタン押下");
+  playerMagic();
+});
+document.getElementById("runBtn").addEventListener("click", () => {
+  console.log("逃げるボタン押下");
+  playerRun();
+});
 
 // --------- メニュー機能（ダミー） ---------
 function showStatus() {
-  setLog(`ゆうしゃ LV.${player.level} HP:${player.hp}/${player.maxHp} MP:${player.mp}/${player.maxMp} ATK:${player.atk} DEF:${player.def}`);
+  const bossCount = player.defeatedBosses.length;
+  setLog(`ゆうしゃ LV.${player.level} HP:${player.hp}/${player.maxHp} MP:${player.mp}/${player.maxMp} ATK:${player.atk} DEF:${player.def} ボス討伐数:${bossCount}`);
 }
 
 function showItems() {
@@ -1120,11 +1714,55 @@ function saveGame() {
   setLog("ぼうけんの書に きろくしました。");
 }
 
-// --------- 初期描画 ---------
+// --------- 初期描画と確認 ---------
+console.log("=== ゲーム初期化開始 ===");
+console.log("movePlayer関数:", typeof movePlayer);
+
 drawMap();
 showBattleUI(false);
 updatePlayerStatus();
-setLog("冒険の世界へ ようこそ！");
+setLog("冒険の世界へ ようこそ！魔王城を探せ！");
+
+console.log("=== ゲーム初期化完了 ===");
+
+// movePlayer関数のテスト呼び出し
+console.log("movePlayer関数テスト呼び出し");
+setTimeout(() => {
+  console.log("テスト: movePlayer(0, 0)を呼び出し");
+  movePlayer(0, 0);
+}, 1000);
   </script>
 </body>
-</html>
+</html>_SIZE;
+        const ry = py + Math.random() * TILE_SIZE;
+        ctx.fillRect(rx, ry, 2, 2);
+      }
+      break;
+    }
+    case T.FOREST: {
+      // 小さな丸で樹木感
+      ctx.fillStyle = "#1d7a2b";
+      for (let i = 0; i < 4; i++) {
+        ctx.beginPath();
+        ctx.arc(px + 16 + i * 8, py + 16 + (i * 12) % 32, 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
+    case T.WATER: {
+      // さざ波
+      ctx.strokeStyle = "#4da6ff";
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.moveTo(px + 8, py + 16 + i * 16);
+        ctx.quadraticCurveTo(px + 32, py + 8 + i * 16, px + 56, py + 16 + i * 16);
+        ctx.stroke();
+      }
+      break;
+    }
+    case T.DESERT: {
+      // 砂模様
+      ctx.fillStyle = "rgba(139,69,19,0.3)";
+      for (let i = 0; i < 12; i++) {
+        const rx = px + Math.random() * TILE
